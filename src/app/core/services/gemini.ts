@@ -20,6 +20,24 @@ function trace(message: string, extra?: unknown): void {
   }
 }
 
+/** Máximo de intentos por llamada (1 inicial + 3 reintentos para errores transitorios). */
+const MAX_ATTEMPTS = 4;
+/** Espera base entre reintentos; se duplica en cada intento (backoff exponencial). */
+const BASE_RETRY_DELAY_MS = 800;
+
+/** Espera indicada en ms (para el backoff entre reintentos). */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Detecta errores TRANSITORIOS del servidor (sobrecarga/cuota) que vale la pena reintentar. */
+function isTransientError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /\b(429|500|502|503|504)\b|RESOURCE_EXHAUSTED|UNAVAILABLE|overloaded|high demand|try again later|rate limit/i.test(
+    message,
+  );
+}
+
 /** Error tipado del servicio de IA, con un mensaje listo para la UI. */
 export class GeminiError extends Error {
   constructor(message: string, override readonly cause?: unknown) {
@@ -189,31 +207,49 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
 
     trace(`generateContent → model=${appEnv.geminiModel}, temp=${params.config.temperature}`);
 
-    try {
-      const response = await this.client.models.generateContent({
-        model: appEnv.geminiModel,
-        contents: params.contents,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: params.config.responseSchema,
-          temperature: params.config.temperature,
-          ...(params.config.systemInstruction ? { systemInstruction: params.config.systemInstruction } : {}),
-        },
-      });
+    let lastError: unknown;
 
-      const text = response.text;
-      if (!text) {
-        throw new GeminiError('Gemini devolvió una respuesta vacía. Intenta de nuevo.');
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await this.client.models.generateContent({
+          model: appEnv.geminiModel,
+          contents: params.contents,
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: params.config.responseSchema,
+            temperature: params.config.temperature,
+            ...(params.config.systemInstruction ? { systemInstruction: params.config.systemInstruction } : {}),
+          },
+        });
+
+        const text = response.text;
+        if (!text) {
+          throw new GeminiError('Gemini devolvió una respuesta vacía. Intenta de nuevo.');
+        }
+        trace(`generateContent ← OK (${text.length} chars)${attempt > 1 ? ` [intento ${attempt}]` : ''}`);
+        return text;
+      } catch (err) {
+        lastError = err;
+
+        // Un GeminiError propio (JSON vacío, etc.) no es transitorio: no reintentar.
+        if (err instanceof GeminiError) {
+          throw err;
+        }
+
+        // Error transitorio (p.ej. 503 por alta demanda) → reintenta con backoff.
+        if (attempt < MAX_ATTEMPTS && isTransientError(err)) {
+          const wait = Math.round(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1) * (0.8 + Math.random() * 0.4));
+          trace(`generateContent ⚠ transitorio (intento ${attempt}/${MAX_ATTEMPTS}), reintento en ${wait}ms`, err);
+          await delay(wait);
+          continue;
+        }
+
+        break; // Error no transitorio o agotados los reintentos.
       }
-      trace(`generateContent ← OK (${text.length} chars)`);
-      return text;
-    } catch (err) {
-      trace('generateContent ← ERROR', err);
-      if (err instanceof GeminiError) {
-        throw err;
-      }
-      throw new GeminiError(this.mapErrorMessage(err), err);
     }
+
+    trace('generateContent ← ERROR (fin de reintentos)', lastError);
+    throw new GeminiError(this.mapErrorMessage(lastError), lastError);
   }
 
   /** Convierte el texto JSON forzado en un objeto tipado, validando lo mínimo. */
@@ -234,6 +270,9 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
     }
     if (/quota|429|RESOURCE_EXHAUSTED/i.test(message)) {
       return 'Se agotó la cuota de Gemini. Espera un momento y reintenta.';
+    }
+    if (/\b(500|502|503|504)\b|UNAVAILABLE|overloaded|high demand|try again later/i.test(message)) {
+      return 'Gemini está saturado ahora mismo (sobrecarga temporal). Se reintentó sin éxito; espera unos segundos y prueba otra vez.';
     }
     if (/fetch|network|Failed to fetch|ENOTFOUND/i.test(message)) {
       return 'Sin conexión con Gemini. Revisa tu internet e inténtalo de nuevo.';

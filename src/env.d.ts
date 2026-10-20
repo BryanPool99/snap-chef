@@ -5,7 +5,7 @@ declare interface Env {
   readonly NG_APP_ENV: string;
   /** Clave de la API de Google Gemini. En producción se define en Vercel. */
   readonly NG_APP_GEMINI_API_KEY: string;
-  /** Modelo de Gemini a utilizar (ej. gemini-2.5-flash). */
+  /** Modelo de Gemini a utilizar (ej. gemini-3.8-flash). */
   readonly NG_APP_GEMINI_MODEL: string;
   [key: string]: any;
 }

@@ -1,0 +1,72 @@
+<div class="mx-auto w-full max-w-2xl">
+  <h1 class="text-balance text-center text-3xl font-semibold tracking-tight text-text-hi sm:text-4xl">
+    ¿Qué te apetece hoy?
+  </h1>
+  <p class="mx-auto mt-3 max-w-md text-balance text-center text-text-mut">
+    Elige tu intención culinaria y luego enseña a la IA los ingredientes que tienes.
+  </p>
+
+  <div
+    class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2"
+    role="radiogroup"
+    aria-label="Estado de ánimo culinario"
+  >
+    @for (mood of moods(); track mood.id) {
+      <button
+        type="button"
+        role="radio"
+        [attr.aria-checked]="selectedId() === mood.id"
+        [attr.aria-label]="mood.label + '. ' + mood.description"
+        (click)="select(mood.id)"
+        class="group relative flex items-start gap-4 rounded-2xl border p-4 text-left transition duration-150 focus-ring"
+        [class.border-amber-core]="selectedId() === mood.id"
+        [class.bg-amber-core/10]="selectedId() === mood.id"
+        [class.shadow-amber-core/20]="selectedId() === mood.id"
+        [class.border-ink-line]="selectedId() !== mood.id"
+        [class.bg-ink-surface]="selectedId() !== mood.id"
+        [class.hover:border-text-faint]="selectedId() !== mood.id"
+        [class.hover:bg-ink-raised]="selectedId() !== mood.id"
+      >
+        <span
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-2xl transition"
+          [class.bg-ink-overlay]="selectedId() !== mood.id"
+          [class.bg-amber-core]="selectedId() === mood.id"
+          aria-hidden="true"
+        >
+          {{ mood.emoji }}
+        </span>
+
+        <span class="min-w-0 flex-1">
+          <span class="block font-semibold text-text-hi">{{ mood.label }}</span>
+          <span class="mt-0.5 block text-sm text-text-mut">{{ mood.description }}</span>
+        </span>
+
+        @if (selectedId() === mood.id) {
+          <span class="absolute right-3 top-3 text-amber-core" aria-hidden="true">
+            <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5">
+              <path
+                fill-rule="evenodd"
+                d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.7-9.3a1 1 0 0 0-1.4-1.4L9 10.58l-1.3-1.3a1 1 0 0 0-1.4 1.42l2 2a1 1 0 0 0 1.4 0l4-4Z"
+                clip-rule="evenodd"
+              />
+            </svg>
+          </span>
+        }
+      </button>
+    }
+  </div>
+
+  <div class="mt-8 flex justify-center">
+    <button
+      type="button"
+      (click)="confirm()"
+      [disabled]="!selected()"
+      class="inline-flex items-center gap-2 rounded-2xl bg-amber-core px-8 py-4 text-lg font-semibold text-amber-ink shadow-lg shadow-black/30 transition duration-150 hover:bg-amber-hi active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-ink-raised disabled:text-text-faint disabled:shadow-none focus-ring"
+    >
+      Continuar
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="h-5 w-5" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+      </svg>
+    </button>
+  </div>
+</div>

@@ -1,0 +1,79 @@
+<div class="mx-auto w-full max-w-2xl">
+  <h1 class="text-balance text-center text-3xl font-semibold tracking-tight text-text-hi sm:text-4xl">
+    Estos son tus ingredientes
+  </h1>
+  <p class="mx-auto mt-3 max-w-md text-balance text-center text-text-mut">
+    Ajusta la lista: quita lo que no uses y añade lo que falte antes de generar la receta.
+  </p>
+
+  <div class="card mt-8 p-5 sm:p-6">
+    @if (items().length === 0) {
+      <div class="flex flex-col items-center gap-3 py-8 text-center">
+        <span class="text-4xl" aria-hidden="true">🧺</span>
+        <p class="max-w-xs text-text-mut">
+          Aún no hay ingredientes. Añade al menos uno para que la IA pueda crear tu receta.
+        </p>
+      </div>
+    } @else {
+      <ul class="flex flex-wrap gap-2" aria-label="Ingredientes detectados">
+        @for (item of items(); track item) {
+          <li>
+            <span class="inline-flex items-center gap-2 rounded-full bg-ink-overlay py-1.5 pl-4 pr-2 text-sm font-medium capitalize text-text-hi">
+              {{ item }}
+              <button
+                type="button"
+                (click)="remove(item)"
+                [attr.aria-label]="'Quitar ' + item"
+                class="flex h-6 w-6 items-center justify-center rounded-full text-text-mut transition hover:bg-danger hover:text-white focus-ring"
+              >
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" class="h-3.5 w-3.5" aria-hidden="true">
+                  <path stroke-linecap="round" d="M6 6l8 8M14 6l-8 8" />
+                </svg>
+              </button>
+            </span>
+          </li>
+        }
+      </ul>
+    }
+
+    <form
+      class="mt-5 flex items-center gap-2 border-t border-ink-line pt-4"
+      (submit)="$event.preventDefault(); add()"
+    >
+      <label class="sr-only" for="ingredient-input">Añadir ingrediente</label>
+      <input
+        id="ingredient-input"
+        type="text"
+        [value]="newIngredient()"
+        (input)="newIngredient.set($any($event.target).value)"
+        placeholder="Añade un ingrediente…"
+        autocomplete="off"
+        class="min-w-0 flex-1 rounded-ctl border border-ink-line bg-ink-base px-4 py-2.5 text-text placeholder:text-text-faint transition focus:border-amber-core focus:outline-none"
+      />
+      <button
+        type="submit"
+        [disabled]="!canAdd()"
+        class="inline-flex shrink-0 items-center gap-1.5 rounded-ctl bg-amber-core px-4 py-2.5 font-semibold text-amber-ink transition hover:bg-amber-hi active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-ink-raised disabled:text-text-faint focus-ring"
+      >
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" class="h-4 w-4" aria-hidden="true">
+          <path stroke-linecap="round" d="M10 5v10M5 10h10" />
+        </svg>
+        Añadir
+      </button>
+    </form>
+  </div>
+
+  <div class="mt-8 flex justify-center">
+    <button
+      type="button"
+      (click)="confirm()"
+      [disabled]="items().length === 0"
+      class="inline-flex items-center gap-2 rounded-2xl bg-amber-core px-8 py-4 text-lg font-semibold text-amber-ink shadow-lg shadow-black/30 transition duration-150 hover:bg-amber-hi active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-ink-raised disabled:text-text-faint disabled:shadow-none focus-ring"
+    >
+      Generar receta
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="h-5 w-5" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+      </svg>
+    </button>
+  </div>
+</div>

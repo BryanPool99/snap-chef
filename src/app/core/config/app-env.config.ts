@@ -28,7 +28,7 @@ export const appEnv = {
   geminiApiKey: import.meta.env.NG_APP_GEMINI_API_KEY ?? '',
 
   /** Modelo de Gemini a usar (configurable sin tocar código). */
-  geminiModel: import.meta.env.NG_APP_GEMINI_MODEL || 'gemini-2.5-flash',
+  geminiModel: import.meta.env.NG_APP_GEMINI_MODEL || 'gemini-3.8-flash',
 
   /** Lado máximo (px) al que se escala la imagen capturada antes de enviarla a la IA. */
   imageMaxSize: 1024,

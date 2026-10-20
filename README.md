@@ -39,7 +39,7 @@ npm start                 # http://localhost:4200
 | Variable | Descripción | Default |
 |---|---|---|
 | `NG_APP_GEMINI_API_KEY` | Clave de Google Gemini API | — |
-| `NG_APP_GEMINI_MODEL` | Modelo a usar | `gemini-2.5-flash` |
+| `NG_APP_GEMINI_MODEL` | Modelo a usar | `gemini-3.8-flash` |
 
 Localmente se leen de `.env` (gitignored). La plantilla `.env.example` se commitea.
 
@@ -55,7 +55,7 @@ Al ser una app **100% frontend sin backend**, la API key queda embebida en el bu
 1. Conecta el repo en [vercel.com/new](https://vercel.com/new) (framework detectado: Angular).
 2. En **Settings → Environment Variables** define:
    - `NG_APP_GEMINI_API_KEY` = tu clave
-   - `NG_APP_GEMINI_MODEL` = `gemini-2.5-flash` (o el que prefieras)
+   - `NG_APP_GEMINI_MODEL` = `gemini-3.8-flash` (o el que prefieras)
 3. Deploy. Las variables se inyectan en build time automáticamente.
 
 ## Gitflow

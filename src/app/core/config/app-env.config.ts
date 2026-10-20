@@ -16,11 +16,14 @@
  * restringiendo la key por HTTP Referrer y fijando una cuota diaria de uso.
  */
 
+import { isDevMode } from '@angular/core';
+
 /** Log de trazabilidad solo en desarrollo (en producción no ensucia la consola). */
 function trace(message: string): void {
-  if (import.meta.env.NG_APP_ENV !== 'production') {
-    console.log(`[Env] ${message}`);
+  if (!isDevMode()) {
+    return;
   }
+  console.log(`[Env] ${message}`);
 }
 
 export const appEnv = {

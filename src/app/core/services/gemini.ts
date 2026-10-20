@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, isDevMode, signal } from '@angular/core';
 import { ContentListUnion, GoogleGenAI, Schema, Type } from '@google/genai';
 import { appEnv } from '../config/app-env.config';
 import { CapturedImage } from '../models/captured-image.model';
@@ -21,12 +21,13 @@ interface RetryState {
 
 /** Log de trazabilidad solo en desarrollo (en producción no ensucia la consola). */
 function trace(message: string, extra?: unknown): void {
-  if (import.meta.env.NG_APP_ENV !== 'production') {
-    if (extra !== undefined) {
-      console.log(`[Gemini] ${message}`, extra);
-    } else {
-      console.log(`[Gemini] ${message}`);
-    }
+  if (!isDevMode()) {
+    return;
+  }
+  if (extra !== undefined) {
+    console.log(`[Gemini] ${message}`, extra);
+  } else {
+    console.log(`[Gemini] ${message}`);
   }
 }
 

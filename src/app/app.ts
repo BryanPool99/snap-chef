@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, isDevMode, signal } from '@angular/core';
 import { MoodSelector } from './features/mood-selector/mood-selector';
 import { CameraCapture } from './features/camera-capture/camera-capture';
 import { IngredientEditor } from './features/ingredient-editor/ingredient-editor';
@@ -17,12 +17,13 @@ const BUSY_STEPS: readonly FlowStep[] = ['detecting', 'generating'];
 
 /** Log de trazabilidad solo en desarrollo (en producción no ensucia la consola). */
 function trace(message: string, extra?: unknown): void {
-  if (import.meta.env.NG_APP_ENV !== 'production') {
-    if (extra !== undefined) {
-      console.log(`[Flow] ${message}`, extra);
-    } else {
-      console.log(`[Flow] ${message}`);
-    }
+  if (!isDevMode()) {
+    return;
+  }
+  if (extra !== undefined) {
+    console.log(`[Flow] ${message}`, extra);
+  } else {
+    console.log(`[Flow] ${message}`);
   }
 }
 

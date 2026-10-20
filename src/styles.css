@@ -1,3 +1,124 @@
-/* You can add global styles to this file, and also import other style files */
-
 @import 'tailwindcss';
+
+/* ------------------------------------------------------------------ */
+/*  Tokens de diseño — "Cocina nocturna premium"                       */
+/*  Oscuro cálido + acentos ámbar. Toda la UI bebe de aquí.            */
+/* ------------------------------------------------------------------ */
+@theme {
+  /* Superficies (neutros cálidos, de más profundo a más elevado) */
+  --color-ink-base: #0f0d0b;
+  --color-ink-surface: #1a1613;
+  --color-ink-raised: #241f1a;
+  --color-ink-overlay: #2e2822;
+  --color-ink-line: #38312a;
+
+  /* Texto (blanco cálido, nunca gris puro) */
+  --color-text-hi: #f6f0e6;
+  --color-text: #ddd2c2;
+  --color-text-mut: #a99c88;
+  --color-text-faint: #7d7364;
+
+  /* Acento cálido (ámbar) — acciones primarias y selección */
+  --color-amber-core: #f0a830;
+  --color-amber-hi: #ffc25e;
+  --color-amber-lo: #d68f1c;
+  --color-amber-ink: #2a1c07; /* texto sobre ámbar */
+
+  /* Semánticos */
+  --color-fit: #86c06b; /* verde fit / éxito */
+  --color-fit-ink: #0d1f08;
+  --color-warn: #e79a3c;
+  --color-danger: #e07a5f; /* terracota cálida, no rojo puro */
+  --color-danger-hi: #f0937a;
+  --color-romantic: #d98aa0; /* rosa cena romántica */
+  --color-dessert: #c98bd9; /* violeta postre */
+
+  /* Radios */
+  --radius-card: 16px;
+  --radius-ctl: 12px;
+
+  /* Una sola familia: sans del sistema afinada (permitido en Operate) */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+    sans-serif;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Base                                                               */
+/* ------------------------------------------------------------------ */
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-ink-base);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Browser surfaces tematizados desde la paleta (no defaults del navegador) */
+  ::selection {
+    background: var(--color-amber-core);
+    color: var(--color-amber-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-amber-core);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Caret acorde al tema */
+  input,
+  textarea {
+    caret-color: var(--color-amber-core);
+  }
+
+  /* Scrollbar tematizada */
+  * {
+    scrollbar-color: var(--color-ink-line) transparent;
+    scrollbar-width: thin;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-line);
+    border-radius: 999px;
+    border: 2px solid var(--color-ink-base);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-faint);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Utilidades compartidas                                             */
+/* ------------------------------------------------------------------ */
+@utility card {
+  background-color: var(--color-ink-surface);
+  border: 1px solid var(--color-ink-line);
+  border-radius: var(--radius-card);
+  /* Sombra con desenfoque real + offset (profundidad, no halo) */
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 12px 32px -12px rgb(0 0 0 / 0.6);
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-amber-core);
+    outline-offset: 2px;
+  }
+}

@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { ContentListUnion, GoogleGenAI, Schema, Type } from '@google/genai';
 import { appEnv } from '../config/app-env.config';
 import { CapturedImage } from '../models/captured-image.model';
@@ -7,6 +7,16 @@ import { Recipe } from '../models/recipe.model';
 /** Shape del JSON que devuelve Gemini al detectar ingredientes. */
 interface DetectionResult {
   ingredients: string[];
+}
+
+/** Estado visible de un reintento en curso, para que la UI lo refleje al usuario. */
+interface RetryState {
+  /** Intento actual (1-based). */
+  attempt: number;
+  /** Total de intentos permitidos. */
+  max: number;
+  /** Motivo breve mostrado al usuario (p.ej. sobrecarga temporal). */
+  reason: string;
 }
 
 /** Log de trazabilidad solo en desarrollo (en producción no ensucia la consola). */
@@ -140,6 +150,9 @@ Reglas:
  */
 @Injectable({ providedIn: 'root' })
 export class GeminiService {
+  /** Estado del reintento en curso (`null` si no lo hay). La UI lo lee para dar feedback visible. */
+  readonly retryState = signal<RetryState | null>(null);
+
   /** Cliente SDK, inicializado en perezoso para no romper el bootstrap si falta la key. */
   private ai: GoogleGenAI | null = null;
 
@@ -205,6 +218,7 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
   }): Promise<string> {
     this.assertConfigured();
 
+    this.retryState.set(null);
     trace(`generateContent → model=${appEnv.geminiModel}, temp=${params.config.temperature}`);
 
     let lastError: unknown;
@@ -226,6 +240,7 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
         if (!text) {
           throw new GeminiError('Gemini devolvió una respuesta vacía. Intenta de nuevo.');
         }
+        this.retryState.set(null);
         trace(`generateContent ← OK (${text.length} chars)${attempt > 1 ? ` [intento ${attempt}]` : ''}`);
         return text;
       } catch (err) {
@@ -239,6 +254,8 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
         // Error transitorio (p.ej. 503 por alta demanda) → reintenta con backoff.
         if (attempt < MAX_ATTEMPTS && isTransientError(err)) {
           const wait = Math.round(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1) * (0.8 + Math.random() * 0.4));
+          // Expone el reintento a la UI para que el usuario vea que se está reintentando.
+          this.retryState.set({ attempt, max: MAX_ATTEMPTS, reason: 'Gemini está saturado' });
           trace(`generateContent ⚠ transitorio (intento ${attempt}/${MAX_ATTEMPTS}), reintento en ${wait}ms`, err);
           await delay(wait);
           continue;
@@ -248,6 +265,7 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
       }
     }
 
+    this.retryState.set(null);
     trace('generateContent ← ERROR (fin de reintentos)', lastError);
     throw new GeminiError(this.mapErrorMessage(lastError), lastError);
   }

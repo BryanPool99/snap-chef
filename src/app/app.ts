@@ -45,6 +45,9 @@ export class App {
   protected readonly recipe = signal<Recipe | null>(null);
   protected readonly errorMessage = signal<string | null>(null);
 
+  /** Estado del reintento de IA en curso (expuesto por GeminiService para dar feedback visible). */
+  protected readonly retryState = this.gemini.retryState;
+
   /** Pasos que se resuelven con una llamada a la IA. */
   protected readonly isBusy = () => BUSY_STEPS.includes(this.step());
 

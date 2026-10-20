@@ -48,10 +48,53 @@ export class CameraService {
       throw new CameraError('UnknownError', 'El video aún no está listo para capturar.');
     }
 
+    // Nota: dibuja sin espejar, para que la imagen enviada a la IA sea fiel a la escena.
+    return this.compress((ctx, width, height) => ctx.drawImage(video, 0, 0, width, height), videoWidth, videoHeight);
+  }
+
+  /** Lee un archivo de imagen subido por el usuario, lo comprime igual que una captura y devuelve Base64. */
+  async compressFile(file: File): Promise<CapturedImage> {
+    if (!file.type.startsWith('image/')) {
+      throw new CameraError('UnknownError', 'El archivo seleccionado no es una imagen.');
+    }
+
+    // Decodifica la imagen (respeta la orientación EXIF de las fotos de móvil).
+    const source = await this.decodeImage(file);
+
+    return this.compress(
+      (ctx, width, height) => ctx.drawImage(source, 0, 0, width, height),
+      source.naturalWidth,
+      source.naturalHeight,
+    );
+  }
+
+  /** Decodifica un File/ Blob en un elemento de imagen dibujable. */
+  private decodeImage(file: File): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new CameraError('UnknownError', 'No se pudo leer la imagen. Prueba con otro archivo.'));
+      };
+      img.src = url;
+    });
+  }
+
+  /** Lienzo oculto compartido: escala, comprime a JPEG y libera la memoria. */
+  private compress(
+    draw: (ctx: CanvasRenderingContext2D, width: number, height: number) => void,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): CapturedImage {
     // Escala manteniendo proporción, sin superar el lado máximo configurado.
-    const scale = Math.min(1, appEnv.imageMaxSize / Math.max(videoWidth, videoHeight));
-    const width = Math.round(videoWidth * scale);
-    const height = Math.round(videoHeight * scale);
+    const scale = Math.min(1, appEnv.imageMaxSize / Math.max(sourceWidth, sourceHeight));
+    const width = Math.round(sourceWidth * scale);
+    const height = Math.round(sourceHeight * scale);
 
     const canvas = document.createElement('canvas');
     canvas.width = width;
@@ -62,8 +105,7 @@ export class CameraService {
       throw new CameraError('UnknownError', 'No se pudo inicializar el canvas de captura.');
     }
 
-    // Nota: dibuja sin espejar, para que la imagen enviada a la IA sea fiel a la escena.
-    ctx.drawImage(video, 0, 0, width, height);
+    draw(ctx, width, height);
 
     const dataUrl = canvas.toDataURL('image/jpeg', appEnv.imageQuality);
 

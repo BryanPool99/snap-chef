@@ -1,0 +1,117 @@
+<section class="mx-auto flex w-full max-w-lg flex-col items-center gap-6">
+  <!-- Input de archivo oculto, activado por los botones. -->
+  <input
+    #fileInput
+    type="file"
+    accept="image/*"
+    class="hidden"
+    (change)="onFileSelected($event)"
+    aria-hidden="true"
+    tabindex="-1"
+  />
+
+  <div class="relative aspect-square w-full overflow-hidden rounded-3xl bg-neutral-900 shadow-2xl">
+    <!-- El <video> siempre está en el DOM para poder usarlo como target del stream. -->
+    <video
+      #video
+      autoplay
+      playsinline
+      muted
+      class="h-full w-full object-cover"
+      [class.invisible]="phase() !== 'live'"
+      aria-label="Vista previa de la cámara"
+    ></video>
+
+    @if (phase() === 'starting' || isProcessing()) {
+      <div class="absolute inset-0 flex items-center justify-center">
+        <div class="flex flex-col items-center gap-4 text-neutral-300">
+          <svg class="h-10 w-10 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          <p class="text-sm">{{ isProcessing() ? 'Procesando imagen…' : 'Iniciando cámara…' }}</p>
+        </div>
+      </div>
+    }
+
+    @if (phase() === 'error') {
+      <div class="absolute inset-0 flex items-center justify-center p-6">
+        <div class="flex flex-col items-center gap-4 text-center">
+          <span class="text-5xl" aria-hidden="true">📷</span>
+          <p class="text-sm text-red-300">{{ errorMessage() }}</p>
+          <div class="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              (click)="startCamera()"
+              class="rounded-full bg-white/10 px-6 py-2 text-sm font-medium text-white transition hover:bg-white/20 focus-ring"
+            >
+              Reintentar cámara
+            </button>
+            <button
+              type="button"
+              (click)="openFilePicker()"
+              class="rounded-full bg-amber-core px-6 py-2 text-sm font-semibold text-amber-ink transition hover:bg-amber-hi focus-ring"
+            >
+              Subir foto
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (phase() === 'preview') {
+      @if (preview(); as image) {
+        <img [src]="image.dataUrl" alt="Foto de los ingredientes" class="absolute inset-0 h-full w-full object-cover" />
+      }
+      <div class="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-black/70 to-transparent p-4">
+        <button
+          type="button"
+          (click)="retake()"
+          class="rounded-full bg-white/15 px-5 py-2.5 text-sm font-medium text-white backdrop-blur transition hover:bg-white/25 focus-ring"
+        >
+          {{ fromUpload() ? 'Usar cámara' : 'Repetir' }}
+        </button>
+        <button
+          type="button"
+          (click)="confirm()"
+          class="rounded-full bg-emerald-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-400 focus-ring"
+        >
+          Usar esta foto
+        </button>
+      </div>
+      @if (!fromUpload()) {
+        <button
+          type="button"
+          (click)="changeToUpload()"
+          class="absolute right-3 top-3 rounded-full bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur transition hover:bg-black/60 focus-ring"
+        >
+          Cambiar por un archivo
+        </button>
+      }
+    }
+  </div>
+
+  @if (phase() === 'live') {
+    <div class="flex flex-col items-center gap-4">
+      <button
+        type="button"
+        (click)="capture()"
+        class="group flex h-20 w-20 items-center justify-center rounded-full bg-white ring-4 ring-white/30 transition active:scale-90 focus-ring"
+        aria-label="Tomar foto con la cámara"
+      >
+        <span class="h-16 w-16 rounded-full bg-red-500 transition group-hover:bg-red-400"></span>
+      </button>
+
+      <button
+        type="button"
+        (click)="openFilePicker()"
+        class="inline-flex items-center gap-2 rounded-ctl border border-ink-line bg-ink-surface px-5 py-2.5 text-sm font-medium text-text transition hover:bg-ink-raised hover:text-text-hi focus-ring"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+        </svg>
+        Subir foto del dispositivo
+      </button>
+    </div>
+  }
+</section>

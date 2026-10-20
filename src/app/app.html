@@ -1,0 +1,104 @@
+<div class="min-h-screen bg-ink-base">
+  <!-- Header -->
+  <header class="mx-auto flex w-full max-w-2xl items-center justify-between px-4 pt-6">
+    <button
+      type="button"
+      (click)="restart()"
+      class="flex items-center gap-2 text-text-hi transition hover:text-amber-core focus-ring"
+      aria-label="SnapChef - empezar de nuevo"
+    >
+      <span class="text-xl" aria-hidden="true">🍳</span>
+      <span class="text-lg font-semibold tracking-tight">SnapChef</span>
+    </button>
+
+    @if (step() !== 'mood') {
+      <button
+        type="button"
+        (click)="restart()"
+        class="rounded-ctl px-3 py-2 text-sm font-medium text-text-mut transition hover:bg-ink-raised hover:text-text-hi focus-ring"
+      >
+        Reiniciar
+      </button>
+    }
+  </header>
+
+  <main class="mx-auto w-full max-w-2xl px-4 py-10 sm:py-14">
+    @if (isBusy()) {
+      <!-- ===================== CARGA (IA) ===================== -->
+      <div class="flex flex-col items-center gap-6 py-20 text-center" role="status" aria-live="polite">
+        <svg class="h-12 w-12 animate-spin text-amber-core" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+        </svg>
+        <p class="text-lg font-medium text-text-hi">
+          {{ step() === 'detecting' ? 'Analizando tus ingredientes…' : 'Creando tu receta…' }}
+        </p>
+        <p class="max-w-xs text-text-mut">
+          {{ step() === 'detecting' ? 'La IA está mirando tu foto.' : 'La IA está diseñando un plato con tu mood y tus ingredientes.' }}
+        </p>
+
+        <!-- Feedback visible cuando Gemini está saturado y se está reintentando. -->
+        @if (retryState(); as retry) {
+          <div
+            class="flex items-center gap-2 rounded-ctl border border-amber-core/40 bg-amber-core/10 px-4 py-2 text-sm font-medium text-amber-core"
+            role="status"
+          >
+            <svg class="h-4 w-4 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+            </svg>
+            <span>
+              {{ retry.reason }} — reintentando ({{ retry.attempt }} de {{ retry.max }})…
+            </span>
+          </div>
+        }
+      </div>
+    } @else if (errorMessage()) {
+      <!-- ===================== ERROR ===================== -->
+      <div class="flex flex-col items-center gap-6 py-20 text-center" role="alert">
+        <span class="text-5xl" aria-hidden="true">⚠️</span>
+        <p class="max-w-sm text-lg text-text-hi">{{ errorMessage() }}</p>
+        <div class="flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            (click)="retry()"
+            class="inline-flex items-center gap-2 rounded-2xl bg-amber-core px-6 py-3 font-semibold text-amber-ink transition hover:bg-amber-hi active:scale-[0.98] focus-ring"
+          >
+            Reintentar
+          </button>
+          <button
+            type="button"
+            (click)="restart()"
+            class="rounded-2xl border border-ink-line px-6 py-3 font-semibold text-text-hi transition hover:bg-ink-raised focus-ring"
+          >
+            Empezar de nuevo
+          </button>
+        </div>
+      </div>
+    } @else {
+      <!-- ===================== FLUJO ===================== -->
+      @switch (step()) {
+        @case ('mood') {
+          <app-mood-selector [moods]="moods" (moodSelected)="onMoodSelected($event)" />
+        }
+        @case ('camera') {
+          <div class="mb-6 text-center">
+            <p class="text-sm text-text-mut">
+              Modo elegido:
+              <span class="font-medium text-amber-core">{{ selectedMood()?.emoji }} {{ selectedMood()?.label }}</span>
+            </p>
+          </div>
+          <app-camera-capture (photoTaken)="onPhotoTaken($event)" />
+        }
+        @case ('editing') {
+          <app-ingredient-editor [detected]="detectedIngredients()" (confirmed)="onIngredientsConfirmed($event)" />
+        }
+        @case ('recipe') {
+          @if (recipe(); as r) {
+            <app-recipe-view [recipe]="r" />
+          }
+        }
+      }
+    }
+  </main>
+</div>

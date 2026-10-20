@@ -15,6 +15,17 @@ type FlowStep = 'mood' | 'camera' | 'detecting' | 'editing' | 'generating' | 're
 /** Etapas que muestran una pantalla de carga. */
 const BUSY_STEPS: readonly FlowStep[] = ['detecting', 'generating'];
 
+/** Log de trazabilidad solo en desarrollo (en producción no ensucia la consola). */
+function trace(message: string, extra?: unknown): void {
+  if (import.meta.env.NG_APP_ENV !== 'production') {
+    if (extra !== undefined) {
+      console.log(`[Flow] ${message}`, extra);
+    } else {
+      console.log(`[Flow] ${message}`);
+    }
+  }
+}
+
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -38,9 +49,10 @@ export class App {
   protected readonly isBusy = () => BUSY_STEPS.includes(this.step());
 
   constructor() {
-    // Al cambiar de paso, vuelve al inicio de la vista.
+    // Al cambiar de paso, vuelve al inicio de la vista y deja rastro en consola.
     effect(() => {
-      this.step();
+      const step = this.step();
+      trace(`paso → ${step}`);
       if (typeof window !== 'undefined') {
         window.scrollTo({ top: 0 });
       }
@@ -94,10 +106,14 @@ export class App {
   private async detect(image: CapturedImage): Promise<void> {
     this.errorMessage.set(null);
     this.step.set('detecting');
+    trace(`detectando ingredientes (${image.width}x${image.height}, ${image.mimeType})`);
     try {
-      this.detectedIngredients.set(await this.gemini.detectIngredients(image));
+      const ingredients = await this.gemini.detectIngredients(image);
+      trace('ingredientes detectados', ingredients);
+      this.detectedIngredients.set(ingredients);
       this.step.set('editing');
     } catch (err) {
+      trace('error al detectar', err);
       this.errorMessage.set(this.toMessage(err, 'No se pudieron detectar los ingredientes.'));
     }
   }
@@ -105,10 +121,14 @@ export class App {
   private async generate(list: readonly string[], mood: Mood): Promise<void> {
     this.errorMessage.set(null);
     this.step.set('generating');
+    trace(`generando receta (mood=${mood.label}, ingredientes=${list.length})`);
     try {
-      this.recipe.set(await this.gemini.generateRecipe([...list], mood.systemPrompt));
+      const recipe = await this.gemini.generateRecipe([...list], mood.systemPrompt);
+      trace('receta generada', recipe.title);
+      this.recipe.set(recipe);
       this.step.set('recipe');
     } catch (err) {
+      trace('error al generar', err);
       this.errorMessage.set(this.toMessage(err, 'No se pudo generar la receta.'));
     }
   }

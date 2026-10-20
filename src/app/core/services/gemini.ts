@@ -9,6 +9,17 @@ interface DetectionResult {
   ingredients: string[];
 }
 
+/** Log de trazabilidad solo en desarrollo (en producción no ensucia la consola). */
+function trace(message: string, extra?: unknown): void {
+  if (import.meta.env.NG_APP_ENV !== 'production') {
+    if (extra !== undefined) {
+      console.log(`[Gemini] ${message}`, extra);
+    } else {
+      console.log(`[Gemini] ${message}`);
+    }
+  }
+}
+
 /** Error tipado del servicio de IA, con un mensaje listo para la UI. */
 export class GeminiError extends Error {
   constructor(message: string, override readonly cause?: unknown) {
@@ -111,7 +122,18 @@ Reglas:
  */
 @Injectable({ providedIn: 'root' })
 export class GeminiService {
-  private readonly ai = new GoogleGenAI({ apiKey: appEnv.geminiApiKey });
+  /** Cliente SDK, inicializado en perezoso para no romper el bootstrap si falta la key. */
+  private ai: GoogleGenAI | null = null;
+
+  /** Devuelve el cliente, validando antes que la API key esté configurada. */
+  private get client(): GoogleGenAI {
+    if (!this.ai) {
+      this.assertConfigured();
+      trace(`creando cliente (model=${appEnv.geminiModel})`);
+      this.ai = new GoogleGenAI({ apiKey: appEnv.geminiApiKey });
+    }
+    return this.ai;
+  }
 
   /** Detecta ingredientes en una imagen usando Gemini Vision y devuelve sus nombres. */
   async detectIngredients(image: CapturedImage): Promise<string[]> {
@@ -165,8 +187,10 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
   }): Promise<string> {
     this.assertConfigured();
 
+    trace(`generateContent → model=${appEnv.geminiModel}, temp=${params.config.temperature}`);
+
     try {
-      const response = await this.ai.models.generateContent({
+      const response = await this.client.models.generateContent({
         model: appEnv.geminiModel,
         contents: params.contents,
         config: {
@@ -181,8 +205,10 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
       if (!text) {
         throw new GeminiError('Gemini devolvió una respuesta vacía. Intenta de nuevo.');
       }
+      trace(`generateContent ← OK (${text.length} chars)`);
       return text;
     } catch (err) {
+      trace('generateContent ← ERROR', err);
       if (err instanceof GeminiError) {
         throw err;
       }

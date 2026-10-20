@@ -48,6 +48,16 @@ function isTransientError(err: unknown): boolean {
   );
 }
 
+/**
+ * Detecta errores de DISPONIBILIDAD del modelo (503 saturado / 404 retirado).
+ * Solo ante estos tiene sentido saltar al siguiente modelo de la cadena de respaldo;
+ * un error de key, de petición o de JSON no se arregla cambiando de modelo.
+ */
+function isAvailabilityError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /\b(404|503)\b|NOT_FOUND|UNAVAILABLE|no longer available|is not found/i.test(message);
+}
+
 /** Error tipado del servicio de IA, con un mensaje listo para la UI. */
 export class GeminiError extends Error {
   constructor(message: string, override readonly cause?: unknown) {
@@ -166,6 +176,11 @@ export class GeminiService {
     return this.ai;
   }
 
+  /** Modelos a probar en cadena: el principal y, si está caído, los de respaldo. */
+  private get modelChain(): string[] {
+    return [appEnv.geminiModel, ...appEnv.geminiFallbackModels.filter((m) => m && m !== appEnv.geminiModel)];
+  }
+
   /** Detecta ingredientes en una imagen usando Gemini Vision y devuelve sus nombres. */
   async detectIngredients(image: CapturedImage): Promise<string[]> {
     const response = await this.generate({
@@ -211,22 +226,57 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
     }
   }
 
-  /** Envuelve generateContent con manejo de errores tipado. */
+  /** Recorre la cadena de modelos: si el principal no está disponible, prueba el de respaldo. */
   private async generate(params: {
     contents: ContentListUnion;
     config: { responseSchema: Schema; temperature: number; systemInstruction?: string };
   }): Promise<string> {
     this.assertConfigured();
+    this.retryState.set(null);
+
+    const models = this.modelChain;
+    let lastError: unknown;
+
+    for (let i = 0; i < models.length; i++) {
+      const model = models[i];
+      try {
+        return await this.generateWithModel(model, params);
+      } catch (err) {
+        lastError = err;
+        const isLast = i === models.length - 1;
+
+        // Solo cambiamos de modelo si el problema es de DISPONIBILIDAD (503/404);
+        // un error de key, de petición o de JSON no se arregla con otro modelo.
+        if (!isLast && isAvailabilityError(err)) {
+          const next = models[i + 1];
+          this.retryState.set({ attempt: i + 1, max: models.length, reason: 'probando modelo alternativo' });
+          trace(`modelo ${model} no disponible → pruebo ${next}`, err);
+          continue;
+        }
+
+        throw err;
+      }
+    }
 
     this.retryState.set(null);
-    trace(`generateContent → model=${appEnv.geminiModel}, temp=${params.config.temperature}`);
+    trace('generateContent ← ERROR (sin modelos disponibles)', lastError);
+    throw new GeminiError(this.mapErrorMessage(lastError), lastError);
+  }
 
-    let lastError: unknown;
+  /** Reintenta un modelo concreto con backoff exponencial ante errores transitorios. */
+  private async generateWithModel(
+    model: string,
+    params: {
+      contents: ContentListUnion;
+      config: { responseSchema: Schema; temperature: number; systemInstruction?: string };
+    },
+  ): Promise<string> {
+    trace(`generateContent → model=${model}, temp=${params.config.temperature}`);
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
         const response = await this.client.models.generateContent({
-          model: appEnv.geminiModel,
+          model,
           contents: params.contents,
           config: {
             responseMimeType: 'application/json',
@@ -241,11 +291,9 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
           throw new GeminiError('Gemini devolvió una respuesta vacía. Intenta de nuevo.');
         }
         this.retryState.set(null);
-        trace(`generateContent ← OK (${text.length} chars)${attempt > 1 ? ` [intento ${attempt}]` : ''}`);
+        trace(`generateContent ← OK vía ${model} (${text.length} chars)${attempt > 1 ? ` [intento ${attempt}]` : ''}`);
         return text;
       } catch (err) {
-        lastError = err;
-
         // Un GeminiError propio (JSON vacío, etc.) no es transitorio: no reintentar.
         if (err instanceof GeminiError) {
           throw err;
@@ -255,19 +303,18 @@ El usuario eligió este estado de ánimo culinario. Genera una receta que encaje
         if (attempt < MAX_ATTEMPTS && isTransientError(err)) {
           const wait = Math.round(BASE_RETRY_DELAY_MS * 2 ** (attempt - 1) * (0.8 + Math.random() * 0.4));
           // Expone el reintento a la UI para que el usuario vea que se está reintentando.
-          this.retryState.set({ attempt, max: MAX_ATTEMPTS, reason: 'Gemini está saturado' });
-          trace(`generateContent ⚠ transitorio (intento ${attempt}/${MAX_ATTEMPTS}), reintento en ${wait}ms`, err);
+          this.retryState.set({ attempt, max: MAX_ATTEMPTS, reason: `${model} está saturado` });
+          trace(`generateContent ⚠ transitorio ${model} (intento ${attempt}/${MAX_ATTEMPTS}), reintento en ${wait}ms`, err);
           await delay(wait);
           continue;
         }
 
-        break; // Error no transitorio o agotados los reintentos.
+        throw err; // Error no transitorio o agotados los reintentos de este modelo.
       }
     }
 
-    this.retryState.set(null);
-    trace('generateContent ← ERROR (fin de reintentos)', lastError);
-    throw new GeminiError(this.mapErrorMessage(lastError), lastError);
+    // Inalcanzable en la práctica (el bucle siempre hace return o throw).
+    throw new GeminiError(this.mapErrorMessage(undefined));
   }
 
   /** Convierte el texto JSON forzado en un objeto tipado, validando lo mínimo. */

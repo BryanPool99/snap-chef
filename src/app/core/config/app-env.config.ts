@@ -28,7 +28,18 @@ export const appEnv = {
   geminiApiKey: import.meta.env.NG_APP_GEMINI_API_KEY ?? '',
 
   /** Modelo de Gemini a usar (configurable sin tocar código). */
-  geminiModel: import.meta.env.NG_APP_GEMINI_MODEL || 'gemini-3.8-flash',
+  geminiModel: import.meta.env.NG_APP_GEMINI_MODEL || 'gemini-3.5-flash',
+
+  /**
+   * Modelos de respaldo, probados en cadena si el principal está caído o saturado
+   * (503/404). Separados por comas en NG_APP_GEMINI_FALLBACK_MODELS.
+   */
+  geminiFallbackModels: (
+    import.meta.env.NG_APP_GEMINI_FALLBACK_MODELS || 'gemini-flash-lite-latest,gemini-3.5-flash-lite'
+  )
+    .split(',')
+    .map((model) => model.trim())
+    .filter(Boolean),
 
   /** Lado máximo (px) al que se escala la imagen capturada antes de enviarla a la IA. */
   imageMaxSize: 1024,

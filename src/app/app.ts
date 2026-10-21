@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, effect, inject, isDevMode, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+  isDevMode,
+  signal,
+} from '@angular/core';
+import { inject as injectAnalytics } from '@vercel/analytics';
 import { MoodSelector } from './features/mood-selector/mood-selector';
 import { CameraCapture } from './features/camera-capture/camera-capture';
 import { IngredientEditor } from './features/ingredient-editor/ingredient-editor';
@@ -53,6 +61,11 @@ export class App {
   protected readonly isBusy = () => BUSY_STEPS.includes(this.step());
 
   constructor() {
+    // Inicializa Vercel Analytics (solo en el navegador).
+    if (typeof window !== 'undefined') {
+      injectAnalytics();
+    }
+
     // Al cambiar de paso, vuelve al inicio de la vista y deja rastro en consola.
     effect(() => {
       const step = this.step();
